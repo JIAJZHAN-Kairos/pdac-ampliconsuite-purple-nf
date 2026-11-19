@@ -16,7 +16,7 @@ process PREPARE_SEEDS {
 }
 
 process AMPLICON_SUITE {
-    tag sample
+    tag "${sample}"
     publishDir { "${params.outdir}/samples/${sample}" }, mode: 'copy'
     input:
     tuple val(sample), path('tumor.bam'), path('tumor.bam.bai'), path(seed)
