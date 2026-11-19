@@ -48,7 +48,7 @@ def prepare(sample, cnv, fit, mask):
             continue
         start, end = int(row["start"]) - 1, int(row["end"])
         cn = Decimal(row["copyNumber"])
-        if not (0 <= start < end and cn.is_finite() and cn >= 0):
+        if not (0 <= start < end and cn.is_finite()):
             raise ValueError(f"{sample}: invalid PURPLE segment {row}")
         if cn >= 3 * ploidy:
             amplifications.append((chrom, start, end, cn))
@@ -106,13 +106,13 @@ def main():
                        "call", "seed_status"], calls)
             if seeds:
                 Path("ready", key).write_text(seed_text)
-            summary.append((sample, fit["purity"], fit["ploidy"], fit.get("status", ""),
+            summary.append((sample, fit["purity"], fit["ploidy"], fit.get("status", ""), row.get("purple_qc", ""),
                             sum(call[5] == "gain" for call in calls),
                             sum(call[5] == "amplification" for call in calls), len(seeds),
                             "seeded" if seeds else "no_eligible_seed",
                             row["kras_qc"], row["kras_vaf"], row["kras_depth"], row["kras_variant"]))
     write_tsv("seed_audit/samples.tsv",
-              ["sample", "purity", "ploidy", "purple_fit_status", "gain_segments",
+              ["sample", "purity", "ploidy", "purple_fit_status", "purple_qc", "gain_segments",
                "amplification_segments", "seed_intervals", "seed_status",
                "kras_qc", "kras_vaf", "kras_depth", "kras_variant"], summary)
 
