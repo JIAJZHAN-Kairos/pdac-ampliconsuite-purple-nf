@@ -39,7 +39,7 @@ def prepare(sample, cnv, fit, mask):
         raise ValueError(f"{sample}: invalid PURPLE fit")
     calls = []
     seeds = []
-    amplifications = []
+    candidates = {"gain": [], "amplification": []}
     for row in cnv:
         chrom = row["chromosome"]
         if not chrom.startswith("chr"):
@@ -51,26 +51,30 @@ def prepare(sample, cnv, fit, mask):
         if not (0 <= start < end and cn.is_finite()):
             raise ValueError(f"{sample}: invalid PURPLE segment {row}")
         if cn >= 3 * ploidy:
-            amplifications.append((chrom, start, end, cn))
+            candidates["amplification"].append((chrom, start, end, cn))
         elif cn >= Decimal("1.5") * ploidy:
-            calls.append((chrom, start, end, cn, cn / ploidy, "gain", "not_seeded"))
-    amplifications.sort(key=lambda row: (CHROMS.index(row[0]), row[1]))
-    groups = []
-    for segment in amplifications:
-        if groups and groups[-1][-1][0] == segment[0] and groups[-1][-1][2] == segment[1]:
-            groups[-1].append(segment)
-        else:
-            groups.append([segment])
-    for group in groups:
-        broad = group[-1][2] - group[0][1] > MAX_FOCAL_BP
-        for chrom, start, end, cn in group:
-            pieces = [] if broad else list(unmasked(start, end, mask.get(chrom, [])))
-            length = sum(right - left for left, right in pieces)
-            reason = ("broad" if broad else "masked" if not pieces else
-                      "partially_masked" if length < end - start else "seeded")
-            calls.append((chrom, start, end, cn, cn / ploidy, "amplification", reason))
-            seeds.extend((chrom, left, right, cn) for left, right in pieces)
+            candidates["gain"].append((chrom, start, end, cn))
+    # Gains and amplifications are grouped separately so that gain shoulders
+    # do not make an adjacent focal amplification count as broad.
+    for call, segments in candidates.items():
+        segments.sort(key=lambda row: (CHROMS.index(row[0]), row[1]))
+        groups = []
+        for segment in segments:
+            if groups and groups[-1][-1][0] == segment[0] and groups[-1][-1][2] == segment[1]:
+                groups[-1].append(segment)
+            else:
+                groups.append([segment])
+        for group in groups:
+            broad = group[-1][2] - group[0][1] > MAX_FOCAL_BP
+            for chrom, start, end, cn in group:
+                pieces = [] if broad else list(unmasked(start, end, mask.get(chrom, [])))
+                length = sum(right - left for left, right in pieces)
+                reason = ("broad" if broad else "masked" if not pieces else
+                          "partially_masked" if length < end - start else "seeded")
+                calls.append((chrom, start, end, cn, cn / ploidy, call, reason))
+                seeds.extend((chrom, left, right, cn) for left, right in pieces)
     calls.sort(key=lambda row: (CHROMS.index(row[0]), row[1]))
+    seeds.sort(key=lambda row: (CHROMS.index(row[0]), row[1]))
     return calls, seeds
 
 

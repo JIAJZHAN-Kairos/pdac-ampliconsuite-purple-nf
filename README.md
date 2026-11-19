@@ -19,9 +19,10 @@ before including samples in the manifest.
 PURPLE absolute tumour copy number divided by sample ploidy defines gain
 (`1.5 ≤ ratio < 3`) and amplification (`ratio ≥ 3`). Autosomal and sex-chromosome
 coordinates are converted from PURPLE's 1-based inclusive format to BED. The
-workflow reports all gains and amplifications, excludes contiguous amplified
-blocks wider than 30 Mb from focal seeding, and subtracts the AA conserved-gain
-and centromere mask. It passes the remaining intervals in a
+workflow reports and seeds both gains and amplifications. Contiguous gain
+blocks and contiguous amplified blocks are assessed separately; a block wider
+than 30 Mb is excluded from focal seeding, and the AA conserved-gain and
+centromere mask is subtracted from the rest. It passes the remaining intervals in a
 `*_AA_CNV_SEEDS.bed` file that bypasses CNVKit and the additional default
 AmpliconSuite seed filter. AA and AC still use their native reconstruction and
 classification settings. The fitted tumour CN sets seed eligibility. AA
