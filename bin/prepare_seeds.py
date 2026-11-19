@@ -8,7 +8,14 @@ from pathlib import Path
 from zipfile import ZipFile
 
 CHROMS = [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY"]
-MAX_FOCAL_BP = 30_000_000
+# Seed rules (CN = PURPLE absolute tumour copy number):
+#   amplification: CN >= 3 x ploidy, seeded at any length
+#   gain:          1.5 x ploidy <= CN < 3 x ploidy, seeded only if CN >= 4.5
+#                  and its contiguous seeded-gain block is shorter than 10 Mb
+AMP_RATIO = Decimal("3")
+GAIN_RATIO = Decimal("1.5")
+GAIN_MIN_CN = Decimal("4.5")
+GAIN_MAX_BLOCK_BP = 10_000_000
 
 
 def bed_mask(path):
@@ -50,12 +57,15 @@ def prepare(sample, cnv, fit, mask):
         cn = Decimal(row["copyNumber"])
         if not (0 <= start < end and cn.is_finite()):
             raise ValueError(f"{sample}: invalid PURPLE segment {row}")
-        if cn >= 3 * ploidy:
+        if cn >= AMP_RATIO * ploidy:
             candidates["amplification"].append((chrom, start, end, cn))
-        elif cn >= Decimal("1.5") * ploidy:
-            candidates["gain"].append((chrom, start, end, cn))
+        elif cn >= GAIN_RATIO * ploidy:
+            if cn >= GAIN_MIN_CN:
+                candidates["gain"].append((chrom, start, end, cn))
+            else:
+                calls.append((chrom, start, end, cn, cn / ploidy, "gain", "below_min_cn"))
     # Gains and amplifications are grouped separately so that gain shoulders
-    # do not make an adjacent focal amplification count as broad.
+    # do not change how an adjacent amplification is handled.
     for call, segments in candidates.items():
         segments.sort(key=lambda row: (CHROMS.index(row[0]), row[1]))
         groups = []
@@ -65,7 +75,7 @@ def prepare(sample, cnv, fit, mask):
             else:
                 groups.append([segment])
         for group in groups:
-            broad = group[-1][2] - group[0][1] > MAX_FOCAL_BP
+            broad = call == "gain" and group[-1][2] - group[0][1] >= GAIN_MAX_BLOCK_BP
             for chrom, start, end, cn in group:
                 pieces = [] if broad else list(unmasked(start, end, mask.get(chrom, [])))
                 length = sum(right - left for left, right in pieces)
