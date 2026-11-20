@@ -4,9 +4,20 @@ Nextflow workflow for GRCh38 paired-end tumour WGS BAMs with matching indexes an
 PURPLE results. The container pins AmpliconSuite 1.6.2, AmpliconArchitect 1.6.r2
 and AmpliconClassifier 2.0.1. AA uses Clarabel.
 
+## Modes
+
+`--mode purple` (default) seeds AA from PURPLE as described below.
+
+`--mode default` runs AmpliconSuite with its own default seeding: CNVkit on the
+tumour BAM with the matched normal BAM (`--normal_bam`), then the wrapper's
+`cnv_prefilter` and `amplified_intervals.py` filters. No other AmpliconSuite or
+AA option is changed from its default. The input CSV needs
+`sample,bam,bai,normal_bam,normal_bai`; `purple` and `mask` are not used.
+
 | Parameter | Input |
 | --- | --- |
-| `input` | CSV with unique `sample,bam,bai,kras_qc,kras_vaf,kras_depth,kras_variant` columns. |
+| `mode` | `purple` (default) or `default`. |
+| `input` | CSV with unique `sample,bam,bai,kras_qc,kras_vaf,kras_depth,kras_variant` columns (purple mode), or `sample,bam,bai,normal_bam,normal_bai` (default mode). |
 | `purple` | ZIP with `<sample>.purple.purity.tsv` and `<sample>.purple.cnv.somatic.tsv` at its root. |
 | `mask` | `GRCh38_merged_centromeres_conserved_sorted.bed` from the same AA reference archive. |
 | `reference` | Official AA GRCh38 tarball with a top-level `GRCh38/` directory. |
